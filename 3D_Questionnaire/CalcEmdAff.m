@@ -45,7 +45,8 @@ for ii = 1 : P
     
     w  = tCoefs;
     w2 = reshape(w, [], size(w, dim_length));
-    final_W = squareform( pdist(w2', 'cityblock') );
+    Adist = getCityBlockDistance(w2');
+    final_W = squareform( Adist );
 
     emd_mat = emd_mat + final_W * prod_factor;
 end
@@ -54,5 +55,15 @@ eps     = cParams{dim_length}.eps * median(emd_mat(:));
 aff_mat = exp(-emd_mat / eps);
 
 end
+
+
+function Adist = getCityBlockDistance(slice)
+    % (Squares of) pairwise cityblock distances between all timepoints 1,..,T:
+    Adist_real = pdist(real(slice), 'cityblock');
+    Adist_imag = pdist(imag(slice), 'cityblock');
+    Adist = Adist_real + Adist_imag;
+
+end
+
 
 
