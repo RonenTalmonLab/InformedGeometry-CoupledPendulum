@@ -35,21 +35,52 @@ if dimLen >= 2
             end
             aff_mat = mean(aff_matAll, 3);
             aff_mat(aff_mat < params.thresh) = 0;
+
+            if any(isnan(aff_mat))
+                error('CalcInitAff - cosine_similarityOnTrials: affinity should not have NaN'); 
+            end
     
         case 'cosine_similarity'
         inner_products     = slices.' * slices;
         [ij_norm, ji_norm] = meshgrid( diag(inner_products) );
         aff_mat            = inner_products ./ sqrt(ij_norm .* ji_norm);
         aff_mat(aff_mat < params.thresh) = 0;
+
+        if any(isnan(aff_mat))
+            error('CalcInitAff - cosine_similarity: affinity should not have NaN'); 
+        end
+
         case 'euc'
         
         euc_dist = squareform(pdist(slices.'));
         [~, nn_dist] = knnsearch(slices.', slices.', 'k', params.knn);
         sigma = params.eps * median(nn_dist(:));
         aff_mat = exp(-euc_dist.^2/(2*sigma^2));
+
+        case 'euc_complex'
         
+        aff_mat = compute_kernel_function(slices.', params.eps);
+
+
+
+    % (Squares of) pairwise Euclidian distances between all timepoints 1,..,T:
+    % Adist = np.square(sp.distance.pdist(A[:, :].real, 'euclidean')) + \
+    %   np.square(sp.distance.pdist(A[:, :].imag, 'euclidean'))
+
+    % Kernel function:
+    % if not eps:
+    %    eps = np.median(Adist)
+    %    print('Using median epsilon of: '+str(eps)+' or ln: '+str(np.log(eps)))
+    % K = np.exp(-sp.distance.squareform(Adist, force='tomatrix') / (2.0 * eps))
+
+%         euc_dist = squareform(pdist(slices.'));
+%         [~, nn_dist] = knnsearch(slices.', slices.', 'k', params.knn);
+%         sigma = params.eps * median(nn_dist(:));
+%         aff_mat = exp(-euc_dist.^2/(2*sigma^2));
+
         otherwise
             error('params.metric is not well define, please fix it');
+            
             
     end
     
@@ -95,5 +126,20 @@ end
 %     title('Initial Col Affinity'), hold off
 % end
 
+end
+
+function K = compute_kernel_function(slice, eps)
+    % (Squares of) pairwise Euclidean distances between all timepoints 1,..,T:
+    Adist_real = pdist(real(slice), 'euclidean').^2;
+    Adist_imag = pdist(imag(slice), 'euclidean').^2;
+    Adist = Adist_real + Adist_imag;
+
+    % Kernel function:
+    if nargin < 2 || isempty(eps)
+        eps = median(Adist);
+        disp(['Using median epsilon of: ', num2str(eps), ' or ln: ', num2str(log(eps))]);
+    end
+
+    K = exp(-squareform(Adist) / (2.0 * eps));
 end
 
